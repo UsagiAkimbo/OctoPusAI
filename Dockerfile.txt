@@ -1,0 +1,34 @@
+# Use an official Python runtime as a parent image with TensorFlow GPU support if needed
+FROM tensorflow/tensorflow:latest-gpu
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the current directory contents into the container at /app
+COPY . /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y git libgl1-mesa-dev libglib2.0-0
+
+# Install Python dependencies from requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install additional Python packages
+RUN pip install spacy openai opencv-python shap fastapi uvicorn mlflow transformers scikit-learn xgboost
+
+# Download Spacy language model
+RUN python -m spacy download en_core_web_sm
+
+# Make port 8000 available to the world outside this container
+EXPOSE 8000
+
+# Define environment variable for OpenAI API Key and any other needed variables
+ENV OPENAI_API_KEY=your_openai_api_key_here
+
+# It's a good practice to run your application as a non-root user
+RUN adduser --disabled-password --gecos '' myuser
+USER myuser
+
+# Run uvicorn to serve the FastAPI app; use workers as per need and adjust host/port as necessary
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

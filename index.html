@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OctoPusAI Interface</title>
+    <link rel="stylesheet" href="style.css"> <!-- Optional for styling -->
+</head>
+<body>
+    <h1>OctoPusAI System</h1>
+    <div id="promptForm">
+        <input type="text" id="userPrompt" placeholder="Enter your text prompt here...">
+        <button onclick="submitPrompt()">Submit Prompt</button>
+    </div>
+    <div id="resultContainer">
+        <h2>Results</h2>
+        <div id="results"></div>
+    </div>
+    <div id="nnVisualization">
+        <h2>Neural Networks Visualization</h2>
+        <h1>SHAP Plot</h1>
+        <img id="shap-plot" src="" alt="SHAP Plot" style="max-width:100%;height:auto;">
+        <h1>SHAP Visualization</h1>
+        <img id="shap-visualization" src="" alt="SHAP Visualization" style="max-width:100%;height:auto;">
+    </div>
+    <script src="app.js"></script> <!-- JavaScript for handling async requests -->
+    <script>
+        async function fetchSHAPPlot() {
+            const response = await fetch('/generate-explanations/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ model_type: 'CNN', dataset_name: 'mnist' })  // Example payload
+            });
+            const data = await response.json();
+            document.getElementById('shap-plot').src = data.plot_url;
+        }
+        fetchSHAPPlot();
+        async function fetchSHAPVisualization() {
+            const response = await fetch('/api/shap-visualization');
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('shap-visualization').src = "${data.plotUrl}";
+            }
+        }
+        fetchSHAPVisualization();
+    </script>
+</body>
+</html>

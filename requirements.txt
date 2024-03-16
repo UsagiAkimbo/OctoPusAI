@@ -1,0 +1,15 @@
+fastapi==0.68.0
+uvicorn==0.15.0
+azure-identity
+azure-keyvault-secrets
+pyodbc
+tensorflow==2.4.1
+numpy==1.19.5
+pandas
+requests==2.25.1
+nltk==3.6.2
+opencv-python-headless==4.5.2.52
+mlflow==1.14.1
+shap==0.39.0
+scikit-learn==0.24.2
+python-multipart==0.0.5
