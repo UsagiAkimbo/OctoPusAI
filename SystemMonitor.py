@@ -29,4 +29,3 @@ class SystemMonitor:
         # Add more detailed health and performance metrics as needed
 
 system_monitor = SystemMonitor()
-
