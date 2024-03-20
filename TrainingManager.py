@@ -5,10 +5,16 @@ from models import get_model
 from data_preprocessing import load_and_preprocess_dataset
 import mlflow
 from ml_flow_utils import log_training_details, fetch_experiment_results
+from mlflow.sklearn import log_model as mlflow_log_model
+from mlflow.sklearn import log_model as log_sklearn_model
 from db_utils import save_model_performance, fetch_model_performance
 from communication import communication_bus
 import asyncio
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
 import numpy as np
 
 class TrainingManager:
@@ -28,28 +34,38 @@ class TrainingManager:
         # Train model
         await self.train_model(model, x_train, y_train, x_test, y_test, model_type, dataset_name)
 
-    async def train_model(self, model, x_train, y_train, x_test, y_test, model_type, dataset_name):
+    async def train_model(self, x_train, y_train, x_test, y_test, model_type, dataset_name, **kwargs):
         # Define a general set of training parameters
         training_params = {
             'epochs': 10,
             'batch_size': 32,
             'validation_data': (x_test, y_test),
         }
+        
+        # Handle non-deep learning models differently
+        if model_type == "random_forest":
+            model, best_params = self.train_random_forest(x_train, y_train, **kwargs)
+            # Evaluate the Random Forest model here or in another function
 
-        # Customize training parameters or logic based on model_type
-        if model_type == 'CNN':
-            # For CNNs, you might want to use a specific optimizer or adjust epochs
-            model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        elif model_type == 'LSTM' or model_type == 'GRU':
-            # LSTM and GRU might benefit from different settings
-            model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
-            training_params['epochs'] = 15
-        elif model_type in ['BERT', 'Transformer', 'GPT']:
-            # For transformer-based models, training logic might be significantly different
-            # This might involve using a different training loop, for instance
-            print(f"Training {model_type} requires a custom training loop.")
-            await self.train_transformer_model(model_type, dataset_name, x_train, y_train, x_val, y_val)
-            return
+        elif model_type == "xgboost":
+            model, best_params = self.train_xgboost(x_train, y_train, **kwargs)
+            # Evaluate the XGBoost model here or in another function
+
+        else:  # This else block is for neural network models (CNN, LSTM, etc.)
+            # Customize training parameters or logic based on model_type
+            if model_type == 'CNN':
+                # For CNNs, you might want to use a specific optimizer or adjust epochs
+                model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+            elif model_type == 'LSTM' or model_type == 'GRU':
+                # LSTM and GRU might benefit from different settings
+                model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
+                training_params['epochs'] = 15
+            elif model_type in ['BERT', 'Transformer', 'GPT']:
+                # For transformer-based models, training logic might be significantly different
+                # This might involve using a different training loop, for instance
+                print(f"Training {model_type} requires a custom training loop.")
+                await self.train_transformer_model(model_type, dataset_name, x_train, y_train, x_val, y_val)
+                return
 
         # Execute the training
         history = model.fit(
@@ -87,7 +103,7 @@ class TrainingManager:
             dict(val_encodings),
             y_val
         ))
-
+        
         # Load model
         model = TFAutoModelForSequenceClassification.from_pretrained(model_type, num_labels=len(np.unique(y_train)))
 
@@ -112,6 +128,71 @@ class TrainingManager:
             mlflow.log_artifact(save_path, "models")
 
         print(f"Transformer model {model_type} trained on {dataset_name} dataset.")
+        
+    def train_random_forest(self, x_train, y_train, **kwargs):
+        # Example Random Forest training logic with GridSearchCV for simplicity
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import GridSearchCV
+        
+        # Define a simple parameter grid for demonstration purposes
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [None, 10, 20]
+        }
+        rf = RandomForestRegressor(random_state=42)
+        grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=3, scoring='neg_mean_squared_error')
+        grid_search.fit(x_train, y_train)
+
+        best_estimator = grid_search.best_estimator_
+        
+        # Start an MLflow run
+        with mlflow.start_run():
+            mlflow.log_params(grid_search.best_params_)
+            # Assuming y_test is available for calculating metrics
+            # predictions = best_estimator.predict(x_test)
+            # Calculate your metrics here...
+            # mlflow.log_metric("some_metric", calculated_metric)
+            log_sklearn_model(best_estimator, "random_forest_model")
+
+        return best_estimator, grid_search.best_params_
+    
+def train_xgboost(self, x_train, y_train, use_grid_search=False, **kwargs):
+    # Check if GridSearchCV should be used
+    if use_grid_search:
+        # Define parameter grid
+        param_grid = kwargs.get('param_grid', {
+            'n_estimators': [100, 200],
+            'max_depth': [6, 10],
+            'learning_rate': [0.01, 0.1],
+            'subsample': [0.8, 1],
+            'colsample_bytree': [0.8, 1]
+        })
+        
+        model = XGBRegressor(random_state=42)
+        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error', verbose=2, n_jobs=-1)
+        grid_search.fit(x_train, y_train)
+
+        best_estimator = grid_search.best_estimator_
+        
+        # Log the best model and parameters with MLflow
+        with mlflow.start_run():
+            mlflow.log_params(grid_search.best_params_)
+            # Assume metrics calculation here
+            log_sklearn_model(best_estimator, "xgboost_model_with_gridsearch")
+
+        return best_estimator, grid_search.best_params_
+    else:
+        # Proceed with simplified training
+        xgb = XGBRegressor(**kwargs)
+        xgb.fit(x_train, y_train)
+
+        # Log the model with MLflow
+        with mlflow.start_run():
+            mlflow.log_params({k: v for k, v in kwargs.items()})
+            # Assume metrics calculation here
+            log_sklearn_model(xgb, "xgboost_model_simplified")
+
+        return xgb, kwargs
 
     async def manage_cross_training(self, model_types: List[str], dataset_names: List[str]):
         # Logic to handle cross-training of models across different datasets
@@ -125,7 +206,8 @@ class TrainingManager:
                 await self.train_model(model, x_train, y_train, x_test, y_test, model_type, dataset_name)
                 # Send a message about the cross-training completion
                 await communication_bus.send_message("cross_training_completed", {"model_type": model_type, "dataset_name": dataset_name})
-                
+
+                   
     async def handle_training_completed(self, data: Dict):
         """
         Handle post-training activities such as further processing or initiating cross-training.
