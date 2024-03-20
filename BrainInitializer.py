@@ -20,4 +20,3 @@ class BrainInitializer:
         except ValueError as e:
             print(f"Error initializing brain: {e}")
             return None
-
