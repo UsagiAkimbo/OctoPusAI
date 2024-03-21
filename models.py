@@ -209,12 +209,3 @@ def train_rnn_model(x_train, y_train, x_val, y_val, input_length=100, vocab_size
     ml_flow_utils.log_model_details(run_id, model, 'RNN', training_info, 'Your Dataset Name')
     
     return model
-
-SHAP_Values_Storage.sql
-CREATE TABLE ShapValues (
-    id INT PRIMARY KEY IDENTITY,
-    model_type VARCHAR(255),
-    dataset_name VARCHAR(255),
-    shap_values TEXT,
-    created_at DATETIME DEFAULT GETDATE()
-);
