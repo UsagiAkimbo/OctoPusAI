@@ -26,4 +26,3 @@ communication_bus = CommunicationBus()
 
 async def start_communication_bus():
     await communication_bus.distribute_messages()
-
