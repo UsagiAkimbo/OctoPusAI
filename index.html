@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,9 +12,9 @@
         <input type="text" id="userPrompt" placeholder="Enter your text prompt here...">
         <button onclick="submitPrompt()">Submit Prompt</button>
     </div>
-    <div id="resultContainer">
-        <h2>Results</h2>
-        <div id="results"></div>
+    <div id="analysisResult">
+        <h2>Analysis Results</h2>
+        <p id="analysisText"></p>
     </div>
     <div id="nnVisualization">
         <h2>Neural Networks Visualization</h2>
@@ -42,6 +42,27 @@
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('shap-visualization').src = "${data.plotUrl}";
+            }
+        }
+        async function submitPrompt() {
+            const promptInput = document.getElementById('userPrompt').value;
+            try {
+                const response = await fetch('/analyze-prompt/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Include other headers as needed, e.g., authorization
+                    },
+                    body: JSON.stringify({ prompt: promptInput })
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                const data = await response.json();
+                document.getElementById('analysisText').textContent = data.analysis; // Assuming the backend sends back an "analysis" field
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('analysisText').textContent = 'Failed to get analysis.';
             }
         }
         fetchSHAPVisualization();
