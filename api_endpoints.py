@@ -219,4 +219,3 @@ async def analyze_user_prompt_with_openai(prompt: str, api_key: str = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 # Additional endpoints can be added here following the same pattern
-
